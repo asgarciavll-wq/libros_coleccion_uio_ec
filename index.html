@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Libros de Colección Quito</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --primary:#7b1e1e;
+  --bg:#f8f5f2;
+}
+
+body {font-family:'Roboto', sans-serif; background:var(--bg); margin:0;}
+
+header {background:var(--primary); color:white; padding:20px; text-align:center;}
+
+.hero {
+  padding:40px;
+  text-align:center;
+  color:white;
+  background:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,.6)),
+  url('https://images.unsplash.com/photo-1512820790803-83ca734da794');
+  background-size:cover;
+}
+
+input {
+  padding:12px;
+  width:80%;
+  max-width:400px;
+  border:none;
+  border-radius:5px;
+}
+
+.container {max-width:1100px; margin:auto; padding:20px;}
+
+.grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:20px;
+}
+
+.card {
+  background:white;
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow:0 5px 15px rgba(0,0,0,.1);
+  transition:.3s;
+}
+
+.card:hover {transform:translateY(-5px);}
+
+.card img {
+  width:100%;
+  height:260px;
+  object-fit:cover;
+}
+
+.card-body {padding:15px;}
+
+.precio {
+  color:#7b1e1e;
+  font-weight:bold;
+  font-size:18px;
+}
+
+.btn {
+  display:inline-block;
+  margin-top:10px;
+  padding:10px;
+  background:var(--primary);
+  color:white;
+  text-decoration:none;
+  border-radius:5px;
+}
+
+/* PAGINACIÓN */
+.pagination {
+  text-align:center;
+  margin-top:20px;
+}
+
+.pagination button {
+  padding:10px 15px;
+  margin:5px;
+  border:none;
+  background:#7b1e1e;
+  color:white;
+  border-radius:5px;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>📚 Libros de Colección Quito</h1>
+</header>
+
+<section class="hero">
+<h2>Encuentra libros únicos</h2>
+<input type="text" id="buscador" placeholder="Buscar libro...">
+</section>
+
+<section class="container">
+<div class="grid" id="libros"></div>
+
+<div class="pagination">
+<button onclick="anterior()">⬅</button>
+<span id="paginaInfo"></span>
+<button onclick="siguiente()">➡</button>
+</div>
+</section>
+
+<script>
+let librosData = [];
+let filtrados = [];
+let pagina = 1;
+const porPagina = 30;
+
+const numeroWhatsApp = "593979255932";
+
+// Imagen SIEMPRE disponible
+const imagenDefault = "https://images.unsplash.com/photo-1495446815901-a7297e633e8d";
+
+// Validar imagen real
+function validarImagen(url) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.src = url;
+    img.onload = () => resolve(url);
+    img.onerror = () => resolve(imagenDefault);
+  });
+}
+
+// Obtener imagen (Google + fallback)
+async function obtenerImagen(titulo) {
+  try {
+    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(titulo)}`);
+    const data = await res.json();
+
+    if (data.items && data.items[0].volumeInfo.imageLinks) {
+      return await validarImagen(data.items[0].volumeInfo.imageLinks.thumbnail);
+    }
+  } catch (e) {}
+
+  const fallback = `https://covers.openlibrary.org/b/title/${encodeURIComponent(titulo)}-L.jpg`;
+  return await validarImagen(fallback);
+}
+
+// WhatsApp correcto
+function generarLinkWhatsApp(libro) {
+  const mensaje =
+    `Hola, estoy interesado en este libro 📚%0A%0A` +
+    `📖 *${libro.TITULO}*%0A` +
+    `👤 Autor: ${libro.AUTOR || 'N/A'}%0A` +
+    `💰 Precio: *$${libro.PRECIO}*%0A%0A` +
+    `¿Sigue disponible?`;
+
+  return `https://wa.me/${numeroWhatsApp}?text=${mensaje}`;
+}
+
+// Mostrar libros
+async function mostrarLibros() {
+  const contenedor = document.getElementById('libros');
+  contenedor.innerHTML = '';
+
+  const inicio = (pagina - 1) * porPagina;
+  const lista = filtrados.slice(inicio, inicio + porPagina);
+
+  for (const libro of lista) {
+    const img = await obtenerImagen(libro.TITULO);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    card.innerHTML = `
+      <img src="${img}">
+      <div class="card-body">
+        <h3>${libro.TITULO}</h3>
+        <p><strong>${libro.AUTOR || 'Autor desconocido'}</strong></p>
+        <p>${libro.DESCRIPCION_COMERCIAL}</p>
+        <div class="precio">$${libro.PRECIO}</div>
+
+        <a class="btn"
+        href="${generarLinkWhatsApp(libro)}"
+        target="_blank">Consultar</a>
+      </div>
+    `;
+
+    contenedor.appendChild(card);
+  }
+
+  document.getElementById('paginaInfo').innerText =
+    `Página ${pagina} de ${Math.ceil(filtrados.length / porPagina)}`;
+}
+
+// Navegación
+function siguiente() {
+  if (pagina * porPagina < filtrados.length) {
+    pagina++;
+    mostrarLibros();
+  }
+}
+
+function anterior() {
+  if (pagina > 1) {
+    pagina--;
+    mostrarLibros();
+  }
+}
+
+// Cargar JSON
+fetch('catalogo_libros.json')
+.then(res => res.json())
+.then(data => {
+  librosData = data;
+  filtrados = data;
+  mostrarLibros();
+});
+
+// Buscador
+document.getElementById('buscador').addEventListener('keyup', e => {
+  const texto = e.target.value.toLowerCase();
+
+  filtrados = librosData.filter(libro =>
+    libro.TITULO.toLowerCase().includes(texto) ||
+    (libro.AUTOR && libro.AUTOR.toLowerCase().includes(texto))
+  );
+
+  pagina = 1;
+  mostrarLibros();
+});
+</script>
+
+</body>
+</html>
